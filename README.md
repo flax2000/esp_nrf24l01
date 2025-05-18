@@ -19,6 +19,8 @@ GPIO5 CE
 GPIO4 IRQ
 
 if you use esp32 interrupts are a better and faster and can be activated using
+
+
 //#define use_interrupt  //might be unstable on single core mcu, works good on plain esp32 bit iffy on esp8266 suggest trying without interrupt first
 
 recommended to run this code on a esp32 with a NRF24L01+PA+LNA module with antenna
