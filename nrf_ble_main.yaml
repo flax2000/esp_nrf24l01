@@ -1,0 +1,246 @@
+# made my swedude
+# use to get irk https://github.com/fryefryefrye/Decoding-Random-Bluetooth-Address
+# my nrf bt code are also based on above
+
+esphome:
+  name: nrf-ble-esp8266
+  libraries:
+    - Spi
+  platformio_options:
+   board_build.f_cpu: 160000000L #faster cpu on esp8266 remove on esp 32
+  on_boot:
+    then:
+      - lambda: App.set_loop_interval(1); // shorter loop interval needen when not using interrupts on esp8266 remove on esp 32
+
+  includes:
+    - irk.h
+    - my_nrf.h
+    - nrfbt_control.h    
+
+
+#esp32:
+#  board: esp32dev
+#  framework:
+#    type: arduino
+
+esp8266:
+  board: esp12e
+  framework:
+    version: recommended
+
+
+
+wifi:
+  fast_connect: true
+  ssid: "xxxxxxxxxxxx"
+  password: "xxxxxxxxxxxxxx"
+  power_save_mode: HIGH
+  output_power: 12 #8.5-20 lower power less vcc noice better for nrf...
+  #use_address: nrf_ble_esp8266.local
+
+
+#nrf24l01 connections, ce, csn, and irq can be changed in my_nrf.h
+
+# Spi pins esp8266
+# GPIO14 SCLK
+# GPIO12 MISO
+# GPIO13 MOSI
+# GPIO15 (CS)(CSN)
+#other used pins
+# GPIO5 CE
+# GPIO4 IRQ
+
+#spi for esp8266
+spi:
+
+#spi for esp32 boards, ok to use almost any pins with esp32
+
+#spi:
+#  clk_pin: 21
+#  mosi_pin: 4
+#  miso_pin: 18
+#  interface: hardware
+
+
+
+external_components:
+  - source:
+      type: local
+      path: my_components
+
+#captive_portal:
+
+# Enable logging
+logger:
+  baud_rate: 0
+  level: error
+# Enable Home Assistant API
+api:
+
+ota:
+  - platform: esphome
+
+
+
+button:
+  - platform: restart
+    name: "nrf bt reboot"
+
+
+
+sensor:
+
+#---------------------------------phone---------------------------------------------
+
+- platform: template
+  name: "phone iBeacon rf24"
+  id: phone_iBeacon_rf24_
+  update_interval: never
+  accuracy_decimals: 0 
+  filters:
+    - timeout:
+        timeout: 180s
+        value: !lambda return 0;
+
+- platform: template
+  name: "phone tx counter avg rf24"
+  accuracy_decimals: 0
+  unit_of_measurement: 'ms'
+  id: counter_mob_avg_
+  update_interval: never
+  filters:
+    - sliding_window_moving_average:
+        window_size: 15
+        send_every: 15
+    - clamp:
+        min_value: 200
+        max_value: 10000
+        ignore_out_of_range: false
+    - timeout:
+        timeout: 120s
+        value: !lambda return 0;
+- platform: template
+  name: "phone tx counter max rf24"
+  accuracy_decimals: 0
+  unit_of_measurement: 'ms'
+  id: counter_mob_max_
+  update_interval: never
+  filters:
+    - max:
+        window_size: 15
+        send_every: 15
+    - clamp:
+        min_value: 200
+        max_value: 15000
+        ignore_out_of_range: false
+    - timeout:
+        timeout: 120s
+        value: !lambda return 0;
+##------------------------------tracker---------------------------------------------------------------------
+- platform: template
+  name: "tracker iBeacon rf24"
+  id: tracker_iBeacon_rf24_
+  update_interval: never
+  accuracy_decimals: 0 
+  filters:
+    - timeout:
+        timeout: 180s
+        value: !lambda return 0;
+
+- platform: template
+  name: "tracker tx counter avg rf24"
+  accuracy_decimals: 0
+  unit_of_measurement: 'ms'
+  id: counter_tracker_avg_
+  update_interval: never
+  filters:
+    - sliding_window_moving_average:
+        window_size: 15
+        send_every: 15
+    - clamp:
+        min_value: 200
+        max_value: 10000
+        ignore_out_of_range: false
+    - timeout:
+        timeout: 120s
+        value: !lambda return 0;
+- platform: template
+  name: "tracker tx counter max rf24"
+  accuracy_decimals: 0
+  unit_of_measurement: 'ms'
+  id: counter_tracker_max_
+  update_interval: never
+  filters:
+    - max:
+        window_size: 15
+        send_every: 15
+    - clamp:
+        min_value: 200
+        max_value: 15000
+        ignore_out_of_range: false    
+    - timeout:
+        timeout: 120s
+        value: !lambda return 0;
+#---------------------------------------------------------------------------------------------------------
+    
+- platform: custom
+  lambda: |-
+    auto my_sensor = new MyCustomSensor();
+    App.register_component(my_sensor);
+    return { my_sensor->bt_phone_counter_,my_sensor->bt_all_counter_, my_sensor->bt_tracker_counter_};
+
+  sensors:
+
+ #--------------------------------------phone-------------------------------------------------------------         
+  - name: "rf24bt phone counter"
+    accuracy_decimals: 0
+    unit_of_measurement: ' '
+    on_raw_value:
+      then:
+      
+        lambda: |-
+              static unsigned long millis_minne=0;
+              unsigned long millis_now=millis();
+              id(counter_mob_avg_).publish_state(millis_now-millis_minne);
+              id(counter_mob_max_).publish_state(millis_now-millis_minne);            
+              millis_minne=millis_now;
+              id(phone_iBeacon_rf24_).publish_state(1);
+    filters:
+      - max:
+          window_size: 30
+          send_every: 30
+
+#-------------------------------------all--------------------------------------------------------------------
+
+  - name: "bt all counter"
+    unit_of_measurement: ' '
+    filters:
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 30
+
+#-------------------------------------tracker--------------------------------------------------------------
+  - name: "rf24bt tracker counter"
+    unit_of_measurement: ' '
+    accuracy_decimals: 0    
+    on_raw_value:
+      then:
+      
+        lambda: |-
+              static unsigned long millis_minne=0;
+              unsigned long millis_now=millis();
+              id(counter_tracker_avg_).publish_state(millis_now-millis_minne);
+              id(counter_tracker_max_).publish_state(millis_now-millis_minne);            
+              millis_minne=millis_now;
+              id(tracker_iBeacon_rf24_).publish_state(1);
+    filters:
+      - max:
+          window_size: 30
+          send_every: 30
+      
+
+
+
+- platform: uptime
+  name: nrf bt uptime 
+
