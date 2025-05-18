@@ -9,14 +9,21 @@ esphome nrf24l01 mac scanner a faster updating mac scanner for presence detectio
 this is faster then a wifi connected esp32, a ethernet connected esp32 are still better then this but this is a faster alternafive when you cant get ethernet.
 
 the code as it is is setup for a esp8266 using the pins below, its made to use interrupts but interrupts on esp8266 are unstable so it polls the irq pins in loop instead.
-Spi pins esp8266
-GPIO14 SCLK
-GPIO12 MISO
-GPIO13 MOSI
-GPIO15 (CS)(CSN)
-other used pins
-GPIO5 CE
-GPIO4 IRQ
+#Spi pins esp8266
+
+#GPIO14 SCLK
+
+#GPIO12 MISO
+
+#GPIO13 MOSI
+
+#GPIO15 (CS)(CSN)
+
+#other used pins
+
+#GPIO5 CE
+
+#GPIO4 IRQ
 
 if you use esp32 interrupts are a better and faster and can be activated using
 
